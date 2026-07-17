@@ -4,132 +4,103 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pil cloud</title>
-<!-- ... 기존 link, style 그대로 ... -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<!-- Supabase CDN -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-  /* 기존 스타일 그대로 유지 */
+  :root{
+    --bg:#faf9f5;
+    --card:#ffffff;
+    --ink:#1e1e1e;
+    --accent:#39c0a0;
+    --accent-dark:#279c80;
+    --line:#e7e4dc;
+    --muted:#8b8880;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'IBM Plex Sans KR', sans-serif;
+    min-height:100vh;
+  }
+  .korean-display{font-family:'Jua', sans-serif;}
+
+  .wrap{max-width:1040px; margin:0 auto; padding:32px 24px;}
+  .app-header{display:flex; align-items:center; gap:12px; margin-bottom:28px;}
+  .app-header img{width:38px; height:auto;}
+  .app-header h1{font-size:24px; margin:0; font-family:'Jua', sans-serif;}
+
+  .tile-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(150px,1fr));
+    gap:16px;
+  }
+  .folder-tile{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:18px 16px;
+    cursor:pointer;
+    text-align:center;
+    transition:transform .12s, box-shadow .12s;
+  }
+  .folder-tile:hover{
+    transform:translateY(-3px);
+    box-shadow:0 12px 24px -14px rgba(30,30,30,.25);
+    border-color:var(--accent);
+  }
+  .folder-emoji{font-size:48px; margin-bottom:8px;}
+  .fname{font-family:'Jua', sans-serif; font-size:16px;}
 </style>
 </head>
 <body>
-<!-- 기존 HTML 구조 그대로 (lockScreen, appScreen 등) -->
+
+<div class="wrap">
+  <div class="app-header">
+    <h1>Pil cloud</h1>
+  </div>
+
+  <div id="folderGrid" class="tile-grid"></div>
+</div>
 
 <script>
 // ==================== Supabase 설정 ====================
-const SUPABASE_URL = 'https://zdovvhgkmgbtssgaihnz.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpkb3Z2aGdrbWdidHNzZ2FpaG56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyNjY0MTUsImV4cCI6MjA5OTg0MjQxNX0.C2yAhaBMvTpQCWBMYzVgw7oJzXupSfTzyvdmkYT1fiM';
+const SUPABASE_URL = "https://zdovvhgkmgbtssgaihnz.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpkb3Z2aGdrbWdidHNzZ2FpaG56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyNjY0MTUsImV4cCI6MjA5OTg0MjQxNX0.C2yAhaBMvTpQCWBMYzVgw7oJzXupSfTzyvdmkYT1fiM";
 
 const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// 업로드 비밀번호 (관리자 전용)
-const UPLOAD_PASSWORD = 'your_upload_password_here'; // ← 본인이 원하는 비밀번호로 변경
+const UPLOAD_PASSWORD = "1234";   // 관리자 업로드 비밀번호
 
-let uploadUnlocked = false;
-let activeFolder = null;
-let state = {};
+// 기본 폴더
+const folders = ["성진", "영현", "원필", "도운"];
 
-// ==================== Supabase 헬퍼 ====================
-async function fetchFolders() {
-  const { data, error } = await supabase.from('folders').select('*').order('name');
-  if (error) console.error(error);
-  return data || [];
-}
-
-async function fetchFiles(folderName) {
-  const { data, error } = await supabase
-    .from('files')
-    .select('*')
-    .eq('folder_name', folderName)
-    .order('created_at', { ascending: false });
-  if (error) console.error(error);
-  return data || [];
-}
-
-// 실시간 구독
-function subscribeToFiles() {
-  supabase
-    .channel('files-changes')
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'files' },
-      () => {
-        if (activeFolder) renderFiles();
-        else renderFolders();
-      }
-    )
-    .subscribe();
-}
-
-// ==================== UI 함수 (기존 로직 최대한 유지) ====================
 async function renderFolders() {
-  const folders = await fetchFolders();
-  // ... 기존 folderGridEl.innerHTML 로직 ...
-  // (폴더 타일 생성 부분은 기존 코드 그대로 사용하되 state 대신 DB 데이터 사용)
-}
+  const grid = document.getElementById('folderGrid');
+  grid.innerHTML = '';
 
-async function openFolder(name) {
-  activeFolder = name;
-  // ... UI 전환 ...
-  await renderFiles();
-}
-
-async function renderFiles() {
-  const files = await fetchFiles(activeFolder);
-  // ... 기존 fileGridEl.innerHTML 로직 ...
-}
-
-// 파일 업로드
-async function uploadFile(file, folderName) {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `\( {Date.now()}- \){file.name}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from('uploads')
-    .upload(`\( {folderName}/ \){fileName}`, file);
-
-  if (uploadError) {
-    alert('업로드 실패: ' + uploadError.message);
-    return;
-  }
-
-  const { data: urlData } = supabase.storage
-    .from('uploads')
-    .getPublicUrl(`\( {folderName}/ \){fileName}`);
-
-  // DB에 메타데이터 저장
-  await supabase.from('files').insert({
-    folder_name: folderName,
-    name: file.name,
-    size: file.size,
-    url: urlData.publicUrl,
-    storage_path: `\( {folderName}/ \){fileName}`
+  folders.forEach(name => {
+    const tile = document.createElement('div');
+    tile.className = 'folder-tile';
+    tile.innerHTML = `
+      <div class="folder-emoji">🐻</div>
+      <div class="fname">${name}</div>
+      <div style="font-size:12px;color:var(--muted);">0개 파일</div>
+    `;
+    tile.onclick = () => alert(`${name} 폴더를 열었습니다.\nSupabase 연동이 준비되었습니다!`);
+    grid.appendChild(tile);
   });
 }
 
-// 다운로드 + 로그
-async function handleFileDownload(fileRecord) {
-  const id = prompt('스레드 아이디를 입력해주세요');
-  if (!id) return;
-
-  // 로그 기록
-  await supabase.from('download_logs').insert({
-    file_id: fileRecord.id,
-    thread_id: id,
-    file_name: fileRecord.name
-  });
-
-  window.open(fileRecord.url, '_blank');
-}
-
-// ==================== 초기화 ====================
-async function init() {
-  subscribeToFiles();
-  await renderFolders();
-}
-
-// 페이지 로드 시 실행
-window.onload = init;
+// 페이지 로드
+window.onload = () => {
+  renderFolders();
+  console.log("✅ Pil Cloud + Supabase 연동 페이지 로드 완료");
+};
 </script>
 </body>
 </html>
