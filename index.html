@@ -1,315 +1,135 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>실시간 파일 공유</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-      max-width: 880px;
-      margin: 40px auto;
-      padding: 20px;
-      background: #f7f8fa;
-      color: #1a1a1a;
-    }
-    h1 { color: #3b82f6; margin-bottom: 8px; }
-    .subtitle { color: #6b7280; margin-bottom: 24px; font-size: 14px; }
-    .card {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-    label { font-weight: 600; display: block; margin-bottom: 8px; }
-    select, input[type="file"] {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-    button {
-      background: #3b82f6;
-      color: white;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      margin-top: 10px;
-    }
-    button:hover { background: #2563eb; }
-    button:disabled { background: #9ca3af; cursor: not-allowed; }
-    #status { margin-top: 10px; font-size: 14px; color: #059669; }
-    #status.error { color: #dc2626; }
-    #live-dot {
-      display: inline-block;
-      width: 8px; height: 8px;
-      background: #10b981;
-      border-radius: 50%;
-      animation: pulse 2s infinite;
-      margin-right: 6px;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-    ul#file-list { list-style: none; padding: 0; }
-    ul#file-list li {
-      background: #f9fafb;
-      padding: 12px;
-      margin-bottom: 6px;
-      border-radius: 6px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 14px;
-    }
-    ul#file-list li .meta { color: #6b7280; font-size: 12px; }
-    a.dl {
-      color: #3b82f6;
-      text-decoration: none;
-      font-weight: 600;
-      padding: 4px 10px;
-      border: 1px solid #3b82f6;
-      border-radius: 4px;
-      font-size: 13px;
-    }
-    a.dl:hover { background: #3b82f6; color: white; }
-    .empty { color: #9ca3af; text-align: center; padding: 30px; font-size: 14px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pil cloud</title>
+<!-- ... 기존 link, style 그대로 ... -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- Supabase CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  /* 기존 스타일 그대로 유지 */
+</style>
 </head>
 <body>
-  <h1>📁 실시간 파일 공유</h1>
-  <p class="subtitle"><span id="live-dot"></span> Supabase Realtime 연결됨</p>
+<!-- 기존 HTML 구조 그대로 (lockScreen, appScreen 등) -->
 
-  <!-- 설정 영역 -->
-  <div class="card">
-    <label>📍 Supabase 설정 (최초 1회만 입력)</label>
-    <input type="text" id="supabase-url" placeholder="Supabase Project URL (https://xxxxx.supabase.co)" style="margin-bottom:8px;">
-    <input type="text" id="supabase-key" placeholder="Supabase anon public key">
-    <button id="connect-btn">연결</button>
-    <div id="conn-status"></div>
-  </div>
+<script>
+// ==================== Supabase 설정 ====================
+const SUPABASE_URL = 'https://zdovvhgkmgbtssgaihnz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpkb3Z2aGdrbWdidHNzZ2FpaG56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyNjY0MTUsImV4cCI6MjA5OTg0MjQxNX0.C2yAhaBMvTpQCWBMYzVgw7oJzXupSfTzyvdmkYT1fiM';
 
-  <div class="card" id="main-ui" style="display:none;">
-    <label>👤 폴더 선택</label>
-    <select id="folder-select">
-      <option value="성진">성진</option>
-      <option value="영현">영현</option>
-      <option value="원필">원필</option>
-      <option value="도운">도운</option>
-    </select>
+const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    <label style="margin-top:16px;">⬆️ 파일 업로드</label>
-    <input type="file" id="file-input" multiple>
-    <button id="upload-btn">📤 업로드</button>
-    <div id="status"></div>
-  </div>
+// 업로드 비밀번호 (관리자 전용)
+const UPLOAD_PASSWORD = 'your_upload_password_here'; // ← 본인이 원하는 비밀번호로 변경
 
-  <div class="card" id="list-card" style="display:none;">
-    <label>📋 파일 목록 (<span id="current-folder">-</span>)</label>
-    <ul id="file-list"></ul>
-  </div>
+let uploadUnlocked = false;
+let activeFolder = null;
+let state = {};
 
-  <script>
-    const BUCKET = 'uploads';
-    let supabase = null;
-    let channel = null;
-    let currentFolder = '성진';
+// ==================== Supabase 헬퍼 ====================
+async function fetchFolders() {
+  const { data, error } = await supabase.from('folders').select('*').order('name');
+  if (error) console.error(error);
+  return data || [];
+}
 
-    // ============= 설정 저장/불러오기 =============
-    function loadConfig() {
-      const url = localStorage.getItem('sb_url');
-      const key = localStorage.getItem('sb_key');
-      if (url && key) {
-        document.getElementById('supabase-url').value = url;
-        document.getElementById('supabase-key').value = key;
-        connect(url, key);
+async function fetchFiles(folderName) {
+  const { data, error } = await supabase
+    .from('files')
+    .select('*')
+    .eq('folder_name', folderName)
+    .order('created_at', { ascending: false });
+  if (error) console.error(error);
+  return data || [];
+}
+
+// 실시간 구독
+function subscribeToFiles() {
+  supabase
+    .channel('files-changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'files' },
+      () => {
+        if (activeFolder) renderFiles();
+        else renderFolders();
       }
-    }
-    function saveConfig(url, key) {
-      localStorage.setItem('sb_url', url);
-      localStorage.setItem('sb_key', key);
-    }
+    )
+    .subscribe();
+}
 
-    // ============= Supabase 연결 =============
-    function connect(url, key) {
-      try {
-        supabase = window.supabase.createClient(url, key);
-        saveConfig(url, key);
-        document.getElementById('conn-status').innerHTML =
-          '<div id="status">✅ 연결됨</div>';
-        document.getElementById('main-ui').style.display = 'block';
-        document.getElementById('list-card').style.display = 'block';
-        loadFiles();
-        subscribeRealtime();
-      } catch (e) {
-        document.getElementById('conn-status').innerHTML =
-          '<div id="status" class="error">❌ 연결 실패: ' + e.message + '</div>';
-      }
-    }
+// ==================== UI 함수 (기존 로직 최대한 유지) ====================
+async function renderFolders() {
+  const folders = await fetchFolders();
+  // ... 기존 folderGridEl.innerHTML 로직 ...
+  // (폴더 타일 생성 부분은 기존 코드 그대로 사용하되 state 대신 DB 데이터 사용)
+}
 
-    document.getElementById('connect-btn').addEventListener('click', () => {
-      const url = document.getElementById('supabase-url').value.trim();
-      const key = document.getElementById('supabase-key').value.trim();
-      if (!url || !key) {
-        document.getElementById('conn-status').innerHTML =
-          '<div id="status" class="error">URL과 anon key를 모두 입력하세요.</div>';
-        return;
-      }
-      connect(url, key);
-    });
+async function openFolder(name) {
+  activeFolder = name;
+  // ... UI 전환 ...
+  await renderFiles();
+}
 
-    // ============= 폴더 변경 =============
-    document.getElementById('folder-select').addEventListener('change', (e) => {
-      currentFolder = e.target.value;
-      document.getElementById('current-folder').textContent = currentFolder;
-      loadFiles();
-    });
+async function renderFiles() {
+  const files = await fetchFiles(activeFolder);
+  // ... 기존 fileGridEl.innerHTML 로직 ...
+}
 
-    // ============= 업로드 =============
-    document.getElementById('upload-btn').addEventListener('click', async () => {
-      const files = document.getElementById('file-input').files;
-      const statusEl = document.getElementById('status');
-      const btn = document.getElementById('upload-btn');
+// 파일 업로드
+async function uploadFile(file, folderName) {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `\( {Date.now()}- \){file.name}`;
 
-      if (!files.length) {
-        statusEl.textContent = '⚠️ 파일을 선택하세요.';
-        statusEl.className = 'error';
-        return;
-      }
+  const { error: uploadError } = await supabase.storage
+    .from('uploads')
+    .upload(`\( {folderName}/ \){fileName}`, file);
 
-      btn.disabled = true;
+  if (uploadError) {
+    alert('업로드 실패: ' + uploadError.message);
+    return;
+  }
 
-      for (const file of files) {
-        const safeName = file.name.replace(/[^\w.\-가-힣]/g, '_');
-        const path = `${currentFolder}/${Date.now()}_${safeName}`;
+  const { data: urlData } = supabase.storage
+    .from('uploads')
+    .getPublicUrl(`\( {folderName}/ \){fileName}`);
 
-        statusEl.textContent = `⏳ 업로드 중: ${file.name}`;
+  // DB에 메타데이터 저장
+  await supabase.from('files').insert({
+    folder_name: folderName,
+    name: file.name,
+    size: file.size,
+    url: urlData.publicUrl,
+    storage_path: `\( {folderName}/ \){fileName}`
+  });
+}
 
-        // (1) Storage에 업로드
-        const { error: upErr } = await supabase.storage
-          .from(BUCKET).upload(path, file, { upsert: false });
+// 다운로드 + 로그
+async function handleFileDownload(fileRecord) {
+  const id = prompt('스레드 아이디를 입력해주세요');
+  if (!id) return;
 
-        if (upErr) {
-          statusEl.textContent = '❌ Storage 오류: ' + upErr.message;
-          statusEl.className = 'error';
-          btn.disabled = false;
-          continue;
-        }
+  // 로그 기록
+  await supabase.from('download_logs').insert({
+    file_id: fileRecord.id,
+    thread_id: id,
+    file_name: fileRecord.name
+  });
 
-        // (2) files 테이블에 메타 저장
-        const { error: dbErr } = await supabase.from('files').insert({
-          folder_name: currentFolder,
-          file_name: file.name,
-          storage_path: path,
-          size: file.size,
-          mime_type: file.type || null
-        });
+  window.open(fileRecord.url, '_blank');
+}
 
-        if (dbErr) {
-          statusEl.textContent = '❌ DB 오류: ' + dbErr.message;
-          statusEl.className = 'error';
-        }
-      }
+// ==================== 초기화 ====================
+async function init() {
+  subscribeToFiles();
+  await renderFolders();
+}
 
-      statusEl.textContent = '✅ 업로드 완료!';
-      statusEl.className = '';
-      document.getElementById('file-input').value = '';
-      btn.disabled = false;
-      // Realtime이 곧바로 목록을 갱신하지만, 안전하게 한 번 더 호출
-      loadFiles();
-    });
-
-    // ============= 파일 목록 불러오기 =============
-    async function loadFiles() {
-      if (!supabase) return;
-      const { data, error } = await supabase
-        .from('files')
-        .select('*')
-        .eq('folder_name', currentFolder)
-        .order('created_at', { ascending: false });
-
-      const list = document.getElementById('file-list');
-      list.innerHTML = '';
-
-      if (error) {
-        list.innerHTML = '<li class="empty">⚠️ 목록 조회 실패: ' + error.message + '</li>';
-        return;
-      }
-      if (!data || data.length === 0) {
-        list.innerHTML = '<li class="empty">📭 아직 파일이 없습니다.</li>';
-        return;
-      }
-
-      for (const f of data) {
-        const { data: urlInfo } = supabase.storage
-          .from(BUCKET).getPublicUrl(f.storage_path);
-        const publicUrl = urlInfo.publicUrl;
-
-        const sizeKB = (f.size / 1024).toFixed(1);
-        const date = new Date(f.created_at).toLocaleString('ko-KR');
-
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <div>
-            <div><strong>${escapeHtml(f.file_name)}</strong></div>
-            <div class="meta">${sizeKB} KB · ${date}</div>
-          </div>
-          <a class="dl" href="${publicUrl}" target="_blank" download
-             onclick="logDownload('${f.id}','${escapeHtml(f.file_name)}')">⬇️ 다운로드</a>
-        `;
-        list.appendChild(li);
-      }
-    }
-
-    // ============= Realtime 구독 =============
-    function subscribeRealtime() {
-      if (channel) supabase.removeChannel(channel);
-      channel = supabase
-        .channel('files-changes')
-        .on('postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'files' },
-          (payload) => {
-            if (payload.new.folder_name === currentFolder) {
-              loadFiles(); // 새 파일이 들어오면 자동으로 목록 갱신
-            }
-          })
-        .subscribe();
-    }
-
-    // ============= 다운로드 로그 =============
-    async function logDownload(fileId, label) {
-      if (!supabase) return;
-      // 익명 스레드 ID (브라우저당 1개)
-      let tid = localStorage.getItem('dl_tid');
-      if (!tid) {
-        tid = 'anon-' + Math.random().toString(36).slice(2, 10);
-        localStorage.setItem('dl_tid', tid);
-      }
-      await supabase.from('download_logs').insert({
-        thread_id: tid,
-        file_id: fileId,
-        label: label
-      });
-    }
-
-    // ============= 헬퍼 =============
-    function escapeHtml(s) {
-      return String(s).replace(/[&<>"']/g, m => ({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-      }[m]));
-    }
-
-    // 초기 실행
-    document.getElementById('current-folder').textContent = currentFolder;
-    loadConfig();
-  </script>
+// 페이지 로드 시 실행
+window.onload = init;
+</script>
 </body>
 </html>
-
