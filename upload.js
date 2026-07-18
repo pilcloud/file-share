@@ -33,26 +33,18 @@ uploadButton.addEventListener('click', async () => {
 
 
     // 다운로드 주소 생성
-    const { data: urlData } = supabaseClient
-        .storage
-        .from('files')
-        .getPublicUrl(filePath);
-
-
-    // Database 저장
     const { error: dbError } = await supabaseClient
-        .from('files')
-        .insert({
-            member: member,
-            filename: file.name,
-            url: urlData.publicUrl
-        });
+  .from('file_names')
+  .insert({
+    path: filePath,
+    original_name: file.name,
+    member: member
+  });
 
-
-    if (dbError) {
-        alert("목록 저장 실패: " + dbError.message);
-        return;
-    }
+if (dbError) {
+  alert("목록 저장 실패: " + dbError.message);
+  return;
+}
 
 
     alert("업로드 완료!");
